@@ -1,0 +1,5 @@
+{
+  "name": "Presensi SMAN 1 Kwanyar",
+  "description": "A comprehensive school attendance and counseling management system for SMAN 1 Kwanyar, featuring public attendance forms, admin dashboards with advanced statistics, and a dedicated counseling (BK) panel.",
+  "requestFramePermissions": []
+}
