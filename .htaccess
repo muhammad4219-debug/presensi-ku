@@ -1,1 +1,24 @@
-�Sʗ���bq�b��j��r���l
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /sman1/
+
+  # Izinkan browser membaca file TS/TSX sebagai Javascript
+  AddType application/javascript .ts
+  AddType application/javascript .tsx
+
+  # Jangan alihkan jika file fisiknya ada (mencegah 404 palsu)
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^index.tsx$ - [L]
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^index.css$ - [L]
+
+  # Alihkan sisa navigasi ke index.html (untuk sistem dashboard)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>

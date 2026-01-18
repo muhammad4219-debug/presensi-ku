@@ -1,80 +1,98 @@
-
-import { AppState } from './types.ts';
 import { INITIAL_DATA } from './constants.ts';
 import { supabase } from './supabaseClient.ts';
 
 const STORAGE_KEY = 'sman1_kwanyar_db';
 
-/**
- * Memuat data: Prioritas dari Supabase, jika gagal pakai LocalStorage, jika kosong pakai Initial.
- */
-export const loadDataFromCloud = async (): Promise<AppState> => {
-  try {
-    const { data, error } = await supabase
-      .from('school_data')
-      .select('content')
-      .eq('id', 1)
-      .single();
-
-    if (error || !data) throw error;
-    
-    // Simpan ke local sebagai cadangan offline
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data.content));
-    return data.content as AppState;
-  } catch (e) {
-    console.warn('Gagal memuat dari Cloud, menggunakan data lokal...', e);
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : INITIAL_DATA;
-  }
+// Fungsi untuk mengecek apakah koneksi ke cloud aktif
+export const getStorageStatus = () => {
+  if (supabase) return 'CLOUD';
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return 'LOCAL_SERVER';
+  return 'OFFLINE_BROWSER';
 };
 
-/**
- * Menyimpan data ke LocalStorage dan Cloud secara paralel.
- */
-export const syncDataToCloud = async (data: AppState): Promise<boolean> => {
-  // Simpan lokal dulu (instan)
+export const loadDataFromCloud = async () => {
+  // 1. Selalu coba ambil dari LocalStorage terlebih dahulu (paling cepat)
+  const saved = localStorage.getItem(STORAGE_KEY);
+  let localData = null;
+  
+  try {
+    if (saved) localData = JSON.parse(saved);
+  } catch (e) {
+    console.error("Gagal membaca LocalStorage");
+  }
+
+  // 2. Jika ada Supabase, coba sinkronisasi data terbaru dari cloud
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('school_settings')
+        .select('content')
+        .eq('id', 1)
+        .single();
+      
+      if (!error && data?.content) {
+        const remoteData = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+        // Update local jika data cloud lebih baru (opsional, untuk sekarang langsung timpa)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteData));
+        return remoteData;
+      }
+    } catch (e) {
+      console.warn("Cloud tidak terjangkau, menggunakan data lokal.");
+    }
+  }
+
+  // 3. Jika tidak ada data sama sekali, gunakan data awal (constants)
+  return localData || INITIAL_DATA;
+};
+
+export const syncDataToCloud = async (data: any) => {
+  // Simpan permanen di browser
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
-  try {
-    const { error } = await supabase
-      .from('school_data')
-      .update({ content: data, updated_at: new Date().toISOString() })
-      .eq('id', 1);
-
-    if (error) throw error;
-    return true;
-  } catch (e) {
-    console.error('Gagal sinkronisasi ke Cloud:', e);
-    return false;
+  // Simpan ke Cloud jika konfigurasi ada
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('school_settings')
+        .upsert({ id: 1, content: data, updated_at: new Date().toISOString() });
+      return !error;
+    } catch (e) {
+      return false;
+    }
   }
+  return true;
 };
 
-// Fix: Add missing syncToMySQL member to resolve import error in AdminDashboard.tsx
-/**
- * Sinkronisasi data ke cloud (Supabase/MySQL alias) dengan feedback pesan status.
- */
-export const syncToMySQL = async (data: AppState): Promise<{ success: boolean; message: string }> => {
-  const success = await syncDataToCloud(data);
-  return {
-    success,
-    message: success ? 'Data berhasil disinkronkan ke Cloud Database.' : 'Gagal sinkronisasi. Cek koneksi internet Anda.'
+// Fitur ekspor database ke file JSON (Sangat berguna jika tidak pakai server)
+export const exportDatabaseToJson = (data: any) => {
+  const dataStr = JSON.stringify(data, null, 2);
+  const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+  
+  const exportFileDefaultName = `DB_SMAN1_KWANYAR_${new Date().toISOString().split('T')[0]}.json`;
+  
+  const linkElement = document.createElement('a');
+  linkElement.setAttribute('href', dataUri);
+  linkElement.setAttribute('download', exportFileDefaultName);
+  linkElement.click();
+};
+
+export const syncToMySQL = async (data: any) => {
+  const ok = await syncDataToCloud(data);
+  return { 
+    success: ok, 
+    message: ok ? 'Data Aman di Browser!' : 'Gagal Sinkron.' 
   };
 };
 
-// Fix: Add missing backupToSQL member to resolve import error in BackupRestore.tsx
-/**
- * Membuat query SQL backup sederhana untuk diunduh sebagai file cadangan fisik.
- */
-export const backupToSQL = (data: AppState): string => {
-  const base64Data = btoa(JSON.stringify(data));
-  return `SET content = '${base64Data}';`;
+export const backupToSQL = (data: any) => {
+  return JSON.stringify(data);
 };
 
-export const createSystemSnapshot = (data: AppState): void => {
+export const createSystemSnapshot = (data: any) => {
   localStorage.setItem('sman1_snapshot', JSON.stringify(data));
 };
 
-export const restoreFromSnapshot = (): AppState | null => {
-  const snapshot = localStorage.getItem('sman1_snapshot');
-  return snapshot ? JSON.parse(snapshot) : null;
+export const restoreFromSnapshot = () => {
+  const s = localStorage.getItem('sman1_snapshot');
+  return s ? JSON.parse(s) : null;
 };

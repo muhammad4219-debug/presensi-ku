@@ -1,24 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard, 
-  Users, 
-  GraduationCap, 
-  BookOpen, 
-  Settings, 
-  BarChart3, 
-  ShieldAlert, 
-  Database,
-  Menu,
-  X,
-  LogOut,
-  Bell,
-  Search,
-  UserCircle,
-  Eye,
-  ChevronDown,
-  Layers
+  LayoutDashboard, Users, GraduationCap, BookOpen, Settings, 
+  BarChart3, ShieldAlert, Database, Menu, X, LogOut, 
+  UserCircle, ChevronDown, Layers, Eye, HardDrive, Cloud, WifiOff
 } from 'lucide-react';
+import { getStorageStatus } from '../storage.ts';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,25 +15,29 @@ interface LayoutProps {
   onLogout: () => void;
 }
 
+// Fix: Define MenuItem interface to correctly handle optional properties across different menu items
 interface MenuItem {
   id: string;
   label: string;
   icon: React.ReactNode;
   isDropdown?: boolean;
-  sub?: { id: string; label: string; icon: React.ReactNode }[];
+  sub?: {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+  }[];
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, activePanel, activeView, onViewChange, onLogout }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMasterOpen, setMasterOpen] = useState(true);
+  const [dbStatus, setDbStatus] = useState(getStorageStatus());
 
+  // Fix: Explicitly type menu arrays as MenuItem[] to prevent inference errors
   const adminMenu: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { 
-      id: 'master', 
-      label: 'Master Data', 
-      icon: <Layers size={20} />,
-      isDropdown: true,
+      id: 'master', label: 'Master Data', icon: <Layers size={20} />, isDropdown: true,
       sub: [
         { id: 'master_guru', label: 'Data Guru', icon: <Users size={16} /> },
         { id: 'master_siswa', label: 'Data Siswa', icon: <GraduationCap size={16} /> },
@@ -56,7 +47,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePanel, activeView, onVi
     },
     { id: 'laporan', label: 'Laporan', icon: <BarChart3 size={20} /> },
     { id: 'monitoring', label: 'Monitoring Kepsek', icon: <Eye size={20} /> },
-    { id: 'backup', label: 'Backup & Restore', icon: <Database size={20} /> },
+    { id: 'backup', label: 'Database & File', icon: <Database size={20} /> },
     { id: 'settings', label: 'Pengaturan', icon: <Settings size={20} /> },
   ];
 
@@ -71,7 +62,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePanel, activeView, onVi
 
   return (
     <div className="min-h-screen flex bg-slate-50">
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transition-transform duration-300 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transition-transform duration-300 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 shadow-2xl`}>
         <div className="flex items-center justify-between p-6 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-lg">S1</div>
@@ -90,14 +81,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activePanel, activeView, onVi
             <React.Fragment key={item.id}>
               {item.isDropdown ? (
                 <div>
-                  <button
-                    onClick={() => setMasterOpen(!isMasterOpen)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-all group ${activeView.startsWith('master_') ? 'bg-slate-800/50 text-white' : ''}`}
-                  >
+                  <button onClick={() => setMasterOpen(!isMasterOpen)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-all group ${activeView.startsWith('master_') ? 'bg-slate-800/50 text-white' : ''}`}>
                     <div className="flex items-center gap-3">
-                      <span className="text-slate-500 group-hover:text-blue-400 transition-colors">
-                        {item.icon}
-                      </span>
+                      <span className="text-slate-500 group-hover:text-blue-400 transition-colors">{item.icon}</span>
                       <span className="text-sm font-medium">{item.label}</span>
                     </div>
                     <ChevronDown size={16} className={`transition-transform ${isMasterOpen ? 'rotate-180' : ''}`} />
@@ -105,11 +91,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePanel, activeView, onVi
                   {isMasterOpen && (
                     <div className="ml-6 mt-1 space-y-1 border-l border-slate-800">
                       {item.sub?.map(sub => (
-                        <button
-                          key={sub.id}
-                          onClick={() => onViewChange(sub.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${activeView === sub.id ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-white'}`}
-                        >
+                        <button key={sub.id} onClick={() => onViewChange(sub.id)} className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${activeView === sub.id ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-white'}`}>
                           {sub.label}
                         </button>
                       ))}
@@ -117,13 +99,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activePanel, activeView, onVi
                   )}
                 </div>
               ) : (
-                <button
-                  onClick={() => onViewChange(item.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-all group ${activeView === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : ''}`}
-                >
-                  <span className={`${activeView === item.id ? 'text-white' : 'text-slate-500 group-hover:text-blue-400'} transition-colors`}>
-                    {item.icon}
-                  </span>
+                <button onClick={() => onViewChange(item.id)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-all group ${activeView === item.id ? 'bg-blue-600 text-white shadow-lg' : ''}`}>
+                  <span className={`${activeView === item.id ? 'text-white' : 'text-slate-500 group-hover:text-blue-400'}`}>{item.icon}</span>
                   <span className="text-sm font-medium">{item.label}</span>
                 </button>
               )}
@@ -132,12 +109,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activePanel, activeView, onVi
         </nav>
 
         <div className="absolute bottom-0 w-full p-4 border-t border-slate-800 bg-slate-900">
-          <button 
-            onClick={onLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 transition-all group"
-          >
-            <LogOut size={20} />
-            <span className="text-sm font-bold">Keluar Portal</span>
+          <button onClick={onLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 transition-all font-bold text-sm">
+            <LogOut size={20} /> Keluar Portal
           </button>
         </div>
       </aside>
@@ -148,8 +121,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activePanel, activeView, onVi
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-slate-100 rounded-lg">
               <Menu size={20} className="text-slate-600" />
             </button>
-            <div className="text-sm font-black text-slate-900 uppercase tracking-widest hidden sm:block">
-              {activePanel} PORTAL
+            <div className="flex items-center gap-3">
+              <div className="text-sm font-black text-slate-900 uppercase tracking-widest hidden sm:block">
+                {activePanel} PORTAL
+              </div>
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border ${
+                dbStatus === 'CLOUD' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-orange-50 border-orange-200 text-orange-700'
+              }`}>
+                {dbStatus === 'CLOUD' ? <Cloud size={10}/> : <WifiOff size={10}/>}
+                {dbStatus === 'CLOUD' ? 'Mode Cloud' : 'Mode Offline (Safe)'}
+              </div>
             </div>
           </div>
 

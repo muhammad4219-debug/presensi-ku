@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
-import { Database, Download, Upload, AlertTriangle, CheckCircle, ShieldCheck, History, Info } from 'lucide-react';
+import { Database, Download, Upload, AlertTriangle, CheckCircle, ShieldCheck, History, Info, Cloud, Zap, Globe, FileJson, Share2 } from 'lucide-react';
 import { AppState } from '../types';
-import { backupToSQL, createSystemSnapshot, restoreFromSnapshot } from '../storage';
+import { backupToSQL, createSystemSnapshot, restoreFromSnapshot, exportDatabaseToJson } from '../storage';
 
 interface BackupRestoreProps {
   data: AppState;
@@ -12,32 +11,25 @@ interface BackupRestoreProps {
 const BackupRestore: React.FC<BackupRestoreProps> = ({ data, onUpdate }) => {
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info', msg: string } | null>(null);
 
-  const handleBackup = () => {
-    const sql = backupToSQL(data);
-    const blob = new Blob([sql], { type: 'text/sql' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sman1_backup_${new Date().toISOString().split('T')[0]}.sql`;
-    a.click();
-    setStatus({ type: 'success', msg: 'File backup .sql berhasil diunduh.' });
+  const handleExportJson = () => {
+    exportDatabaseToJson(data);
+    setStatus({ type: 'success', msg: 'Database berhasil diekspor ke format JSON!' });
+    setTimeout(() => setStatus(null), 3000);
   };
 
   const handleSnapshot = () => {
     createSystemSnapshot(data);
-    setStatus({ type: 'success', msg: 'Snapshot Sistem Berhasil Dibuat! Versi ini sekarang terkunci di memori.' });
+    setStatus({ type: 'success', msg: 'Snapshot lokal berhasil dibuat!' });
     setTimeout(() => setStatus(null), 3000);
   };
 
   const handleRestoreSnapshot = () => {
     const snap = restoreFromSnapshot();
     if (snap) {
-      if (window.confirm("Kembalikan sistem ke versi snapshot yang terkunci? Data saat ini akan diganti.")) {
+      if (window.confirm("Restore ke snapshot stabil di browser ini?")) {
         onUpdate(snap);
-        setStatus({ type: 'info', msg: 'Sistem berhasil dikembalikan ke versi snapshot.' });
+        setStatus({ type: 'info', msg: 'Data berhasil dipulihkan.' });
       }
-    } else {
-      setStatus({ type: 'error', msg: 'Belum ada snapshot yang tersimpan.' });
     }
   };
 
@@ -48,16 +40,11 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ data, onUpdate }) => {
     reader.onload = (event) => {
       try {
         const content = event.target?.result as string;
-        const match = content.match(/SET content = '(.+)'/);
-        if (match && match[1]) {
-          const restored = JSON.parse(atob(match[1]));
-          onUpdate(restored);
-          setStatus({ type: 'success', msg: 'Data berhasil direstore dari file .sql' });
-        } else {
-          throw new Error();
-        }
+        const restored = JSON.parse(content);
+        onUpdate(restored);
+        setStatus({ type: 'success', msg: 'Database berhasil diimpor dari file!' });
       } catch (err) {
-        setStatus({ type: 'error', msg: 'Gagal restore. File tidak valid.' });
+        setStatus({ type: 'error', msg: 'File tidak valid. Pastikan formatnya .json' });
       }
     };
     reader.readAsText(file);
@@ -67,85 +54,85 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ data, onUpdate }) => {
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 pb-10">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">System Security & Backup</h2>
-          <p className="text-slate-500">Kunci stabilitas aplikasi dan amankan data Anda.</p>
+          <h2 className="text-2xl font-bold text-slate-900">Manajemen Database & File</h2>
+          <p className="text-slate-500">Kelola data sekolah Anda tanpa perlu server XAMPP.</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-2xl border border-green-100">
-          <ShieldCheck className="text-green-600" size={20} />
-          <span className="text-xs font-bold text-green-700 uppercase">Versi Stabil Terkunci</span>
+        <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded-2xl border border-blue-100 text-[10px] font-black uppercase tracking-widest">
+          No Server Required
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* SQL Backup */}
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
-            <Download size={32} />
+      <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full -mr-32 -mt-32 -z-0"></div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
+          <div className="flex-1 space-y-4">
+            <div className="w-16 h-16 bg-blue-600 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-blue-100">
+              <FileJson size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900">Database Portabel (.JSON)</h3>
+            <p className="text-slate-500 leading-relaxed">
+              Ini adalah cara termudah mengelola data. Klik <b>Ekspor Database</b> untuk menyimpan seluruh data sekolah dalam satu file kecil. 
+              Anda bisa memindahkan file ini ke laptop lain dan melakukan <b>Impor Data</b>.
+            </p>
+            <div className="flex flex-wrap gap-3 pt-4">
+              <button onClick={handleExportJson} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-black transition-all">
+                <Download size={18} /> Ekspor Database
+              </button>
+              <label className="px-6 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-50 transition-all cursor-pointer">
+                <Upload size={18} /> Impor Data
+                <input type="file" accept=".json" className="hidden" onChange={handleRestoreFile} />
+              </label>
+            </div>
           </div>
-          <h3 className="font-bold text-slate-900 mb-2">Export SQL</h3>
-          <p className="text-xs text-slate-500 mb-6">Cadangkan data ke file fisik untuk disimpan di Flashdisk.</p>
-          <button onClick={handleBackup} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-black transition-all">Download .sql</button>
+          <div className="w-full md:w-72 p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest">
+              <Info size={14}/> Kenapa JSON?
+            </div>
+            <ul className="space-y-3">
+              <li className="text-[11px] text-slate-600 flex gap-2 font-medium">
+                <CheckCircle size={14} className="text-green-500 shrink-0"/> Tidak butuh XAMPP/MySQL
+              </li>
+              <li className="text-[11px] text-slate-600 flex gap-2 font-medium">
+                <CheckCircle size={14} className="text-green-500 shrink-0"/> Sangat ringan & cepat
+              </li>
+              <li className="text-[11px] text-slate-600 flex gap-2 font-medium">
+                <CheckCircle size={14} className="text-green-500 shrink-0"/> Bisa dibuka di HP/Laptop
+              </li>
+            </ul>
+          </div>
         </div>
+      </div>
 
-        {/* System Snapshot */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-8 rounded-[2.5rem] border border-blue-100 shadow-md flex flex-col items-center text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-2">
-            <div className="px-2 py-0.5 bg-blue-600 text-[8px] text-white font-bold rounded-full">RECOMMENDED</div>
-          </div>
           <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-200">
             <ShieldCheck size={32} />
           </div>
-          <h3 className="font-bold text-slate-900 mb-2">System Snapshot</h3>
-          <p className="text-xs text-slate-500 mb-6">Kunci kondisi sistem saat ini ke memori permanen browser.</p>
+          <h3 className="font-bold text-slate-900 mb-2">Simpan ke Memori Browser</h3>
+          <p className="text-xs text-slate-500 mb-6">Membuat "foto" kondisi data saat ini di dalam browser Anda.</p>
           <div className="grid grid-cols-2 gap-2 w-full">
-            <button onClick={handleSnapshot} className="py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all">Buat Kunci</button>
-            <button onClick={handleRestoreSnapshot} className="py-3 bg-white border border-blue-200 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-50 transition-all flex items-center justify-center gap-1"><History size={14}/> Reset</button>
+            <button onClick={handleSnapshot} className="py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all">Buat Snapshot</button>
+            <button onClick={handleRestoreSnapshot} className="py-3 bg-white border border-blue-200 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-50 transition-all flex items-center justify-center gap-1"><History size={14}/> Restore</button>
           </div>
         </div>
 
-        {/* Restore File */}
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-6">
-            <Upload size={32} />
+        <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-white/10 text-white rounded-2xl flex items-center justify-center mb-6">
+            <Share2 size={32} />
           </div>
-          <h3 className="font-bold text-slate-900 mb-2">Restore Data</h3>
-          <p className="text-xs text-slate-500 mb-6">Gunakan file .sql sebelumnya untuk memulihkan keadaan.</p>
-          <label className="w-full py-3 bg-orange-600 text-white rounded-xl font-bold text-sm hover:bg-orange-700 transition-all cursor-pointer flex items-center justify-center gap-2">
-            <Upload size={16}/> Pilih File
-            <input type="file" accept=".sql" className="hidden" onChange={handleRestoreFile} />
-          </label>
+          <h3 className="font-bold mb-2">Pindahkan Data</h3>
+          <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+            Ingin pindah laptop? Cukup Ekspor ke JSON, kirim filenya lewat WA atau Email, lalu Impor di laptop baru. Tidak perlu repot ekspor-impor SQL di XAMPP!
+          </p>
+          <button onClick={() => setStatus({type: 'info', msg: 'Fitur Share via Link segera hadir!'})} className="w-full py-3 bg-blue-600 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all">Salin Tautan Backup</button>
         </div>
-      </div>
-
-      <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-          <div className="w-24 h-24 bg-white/10 rounded-3xl flex items-center justify-center shrink-0">
-            <Info size={48} className="text-blue-400" />
-          </div>
-          <div>
-            <h4 className="text-xl font-bold mb-2">Panduan Keamanan Developer</h4>
-            <p className="text-slate-400 text-sm leading-relaxed mb-4">
-              Untuk "mengunci" aplikasi secara total, silakan lakukan **Manual Folder Backup** secara berkala:
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex gap-3">
-                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center font-bold text-xs">1</div>
-                <p className="text-xs text-slate-300">Copy seluruh folder <code className="bg-white/10 px-1 rounded">htdocs/presensi</code> ke tempat lain.</p>
-              </div>
-              <div className="flex gap-3">
-                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center font-bold text-xs">2</div>
-                <p className="text-xs text-slate-300">Ekspor database <code className="bg-white/10 px-1 rounded">sman1_kwanyar</code> dari phpMyAdmin.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="absolute bottom-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full -mb-32 -mr-32 blur-3xl"></div>
       </div>
 
       {status && (
-        <div className={`p-4 rounded-2xl flex items-center gap-3 animate-bounce shadow-lg ${
-          status.type === 'success' ? 'bg-green-500 text-white' : 
-          status.type === 'info' ? 'bg-blue-500 text-white' : 'bg-red-500 text-white'
+        <div className={`fixed bottom-10 right-10 p-4 rounded-2xl flex items-center gap-3 shadow-2xl z-50 animate-in slide-in-from-right-10 ${
+          status.type === 'success' ? 'bg-green-600 text-white' : 
+          status.type === 'info' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
         }`}>
           {status.type === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
           <span className="font-bold text-sm">{status.msg}</span>
